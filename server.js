@@ -22,7 +22,7 @@ const db = mysql.createConnection(
   console.log("Connected to the election database.")
 );
 
-// Get all candidates
+// Get all candidates and parties
 app.get("/api/candidates", (req, res) => {
   const sql = `SELECT candidates.*, parties.name 
              AS party_name 
@@ -42,30 +42,25 @@ app.get("/api/candidates", (req, res) => {
   });
 });
 
-// Delete a candidate
-app.delete("/api/candidate/:id", (req, res) => {
+// Get single candidate with party affiliation
+app.get('/api/candidate/:id', (req, res) => {
   const sql = `SELECT candidates.*, parties.name 
-             AS party_name 
-             FROM candidates 
-             LEFT JOIN parties 
-             ON candidates.party_id = parties.id 
-             WHERE candidates.id = ?`;
+               AS party_name 
+               FROM candidates 
+               LEFT JOIN parties 
+               ON candidates.party_id = parties.id 
+               WHERE candidates.id = ?`;
   const params = [req.params.id];
 
-  db.query(sql, params, (err, result) => {
+  db.query(sql, params, (err, row) => {
     if (err) {
-      res.statusMessage(400).json({ error: res.message });
-    } else if (!result.affectedRows) {
-      res.json({
-        message: `Candidate not found`
-      });
-    } else {
-      res.json({
-        message: "successfully deleted",
-        changes: result.affectedRows,
-        id: req.params.id
-      });
+      res.status(400).json({ error: err.message });
+      return;
     }
+    res.json({
+      message: 'success',
+      data: row
+    });
   });
 });
 
@@ -148,6 +143,33 @@ app.put('/api/candidate/:id', (req, res) => {
   });
 });
 
+// Delete a candidate
+app.delete("/api/candidate/:id", (req, res) => {
+  const sql = `SELECT candidates.*, parties.name 
+             AS party_name 
+             FROM candidates 
+             LEFT JOIN parties 
+             ON candidates.party_id = parties.id 
+             WHERE candidates.id = ?`;
+  const params = [req.params.id];
+
+  db.query(sql, params, (err, result) => {
+    if (err) {
+      res.statusMessage(400).json({ error: res.message });
+    } else if (!result.affectedRows) {
+      res.json({
+        message: `Candidate not found`
+      });
+    } else {
+      res.json({
+        message: "successfully deleted",
+        changes: result.affectedRows,
+        id: req.params.id
+      });
+    }
+  });
+});
+
 // Default response for any other request (Not Found)
 app.use((req, res) => {
   res.status(404).end();
@@ -157,6 +179,7 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
+// gets all parties
 app.get("/api/parties", (req, res) => {
   const sql = `SELECT * FROM parties`;
   db.query(sql, (err, rows) => {
@@ -171,6 +194,7 @@ app.get("/api/parties", (req, res) => {
   });
 });
 
+// gets single party
 app.get("/api/party/:id", (req, res) => {
   const sql = `SELECT * FROM parties WHERE id = ?`;
   const params = [req.params.id];
@@ -186,6 +210,7 @@ app.get("/api/party/:id", (req, res) => {
   });
 });
 
+// delete a party
 app.delete("/api/party/:id", (req, res) => {
   const sql = `DELETE FROM parties WHERE id = ?`;
   const params = [req.params.id];
@@ -205,4 +230,18 @@ app.delete("/api/party/:id", (req, res) => {
       });
     }
   });
+});
+
+// Not found response for unmatched routes
+app.use((req,res) => {
+  res.status(404).end();
+});
+
+// Start server after DB connection
+db.connect(err => {
+  if(err) throw err;
+  console.log('Database connected.');
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  })
 });
